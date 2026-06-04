@@ -1,0 +1,1 @@
+"""Paquete base de sat32d_robot."""

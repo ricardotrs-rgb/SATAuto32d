@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SAT32D Registro</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body class="page-auth">
+  <main class="auth-shell register-shell">
+    <section class="auth-panel auth-copy">
+      <p class="eyebrow">SAT32D Control</p>
+      <h1>Registro local de acceso</h1>
+      <p class="lead">Captura RFC, correo electrónico y contraseña del usuario que iniciará sesión, y agrega en un apartado separado a las personas que desea monitorear.</p>
+      <ul class="feature-list">
+        <li>El acceso local seguirá usando el RFC y la contraseña capturados aquí.</li>
+        <li>Puedes dejar vacías las filas que no necesites en el apartado de monitoreo.</li>
+        <li>El tablero actual seguirá leyendo el Excel de control tal como ya funciona.</li>
+      </ul>
+    </section>
+    <section class="auth-panel auth-form-panel">
+      <form class="auth-form register-form" action="{{ url_for('register_submit') }}" method="post">
+        <h2>Registrar acceso</h2>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-stack">
+              {% for category, message in messages %}
+                <div class="flash flash-{{ category }}" role="status" aria-live="polite">
+                  <p class="flash-content">{{ message }}</p>
+                  <button class="flash-close" type="button" aria-label="Cerrar notificacion">x</button>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <section class="form-section">
+          <div class="section-head register-section-head">
+            <div>
+              <h3>Datos del usuario</h3>
+              <p class="lead compact">Esta información generará el acceso local que después usará el botón Entrar.</p>
+            </div>
+          </div>
+          <div class="fields-grid">
+            <label class="field">
+              <span>RFC de acceso</span>
+              <input type="text" name="rfc" value="{{ form_data.rfc }}" placeholder="Tu RFC con homoclave" autocomplete="username" required>
+            </label>
+            <label class="field">
+              <span>Correo electronico</span>
+              <input type="email" name="email" value="{{ form_data.email }}" placeholder="usuario@empresa.com" required>
+            </label>
+            <label class="field">
+              <span>Contrasena</span>
+              <input type="password" name="password" placeholder="Crea tu contrasena" autocomplete="new-password" required>
+            </label>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <div class="section-head register-section-head">
+            <div>
+              <h3>Personas a monitorear</h3>
+              <p class="lead compact">Captura aquí la información base de las personas o contribuyentes que deseas monitorear.</p>
+            </div>
+          </div>
+          <div class="monitor-list">
+            {% for person in form_data.monitored_people %}
+              <article class="monitor-card">
+                <h4>Persona {{ loop.index }}</h4>
+                <div class="fields-grid monitor-fields-grid">
+                  <label class="field">
+                    <span>RFC</span>
+                    <input type="text" name="monitor_rfc_{{ loop.index }}" value="{{ person.rfc }}" placeholder="RFC a monitorear">
+                  </label>
+                  <label class="field">
+                    <span>Nombre o razon social</span>
+                    <input type="text" name="monitor_nombre_{{ loop.index }}" value="{{ person.nombre }}" placeholder="Nombre del cliente o contribuyente">
+                  </label>
+                  <label class="field">
+                    <span>Modo de consulta</span>
+                    <select name="monitor_modo_{{ loop.index }}">
+                      <option value="PUBLICO"{% if person.modo_consulta == 'PUBLICO' %} selected{% endif %}>PUBLICO</option>
+                      <option value="TERCERO"{% if person.modo_consulta == 'TERCERO' %} selected{% endif %}>TERCERO</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>Requiere PDF</span>
+                    <select name="monitor_pdf_{{ loop.index }}">
+                      <option value="SI"{% if person.requiere_pdf == 'SI' %} selected{% endif %}>SI</option>
+                      <option value="NO"{% if person.requiere_pdf == 'NO' %} selected{% endif %}>NO</option>
+                    </select>
+                  </label>
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        </section>
+
+        <div class="auth-actions">
+          <a class="secondary-button button-link" href="{{ url_for('home') }}">Volver</a>
+          <button class="success-button" type="submit">Registrar</button>
+        </div>
+      </form>
+    </section>
+  </main>
+  <script src="{{ url_for('static', filename='flash-toast.js') }}"></script>
+</body>
+</html>

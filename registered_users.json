@@ -1,0 +1,23 @@
+{
+  "TST260522ABC": {
+    "password_hash": "scrypt:32768:8:1$MYOV8VOh9oN1w0ZH$e4e8994d000ceb2593da4906c6237cfde8629912f4c4786cb1acfcf8f1a3353cb76b892823d0a00a4f010174254a14ac4350db491bd9eca84439920bd841b067",
+    "profile": {
+      "email": "test.sat32d@example.com"
+    },
+    "monitored_people": [
+      {
+        "rfc": "MON260522A11",
+        "nombre": "Cliente Demo",
+        "modo_consulta": "TERCERO",
+        "requiere_pdf": "SI"
+      }
+    ]
+  },
+  "IOEF840128UC4": {
+    "password_hash": "scrypt:32768:8:1$hRUSdN5H3096syt6$a65cd81a35a8de885b801c13c1b78dc623728ed24b199bf2be69019426867ea21e45ec52aba3101e013b6af9be1c043fc6e6b1a72aef889aea80e03dc4bc0239",
+    "profile": {
+      "email": "ioef@example.com"
+    },
+    "monitored_people": []
+  }
+}

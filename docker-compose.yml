@@ -1,0 +1,32 @@
+services:
+  sat32d:
+    build: .
+    container_name: sat32d-web
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      SAT32D_CONFIG_PATH: /app/config.production.yaml
+      SAT32D_WEB_SECRET: ${SAT32D_WEB_SECRET}
+      SAT32D_WEB_ALLOWED_RFCS: ${SAT32D_WEB_ALLOWED_RFCS}
+      SAT32D_WEB_ALLOWED_PASSWORD: ${SAT32D_WEB_ALLOWED_PASSWORD}
+      SAT32D_WEB_ALLOWED_HOSTS: ${SAT32D_WEB_ALLOWED_HOSTS}
+      SAT32D_WEB_PROXY_FIX: ${SAT32D_WEB_PROXY_FIX:-1}
+      SAT32D_WEB_COOKIE_SECURE: ${SAT32D_WEB_COOKIE_SECURE:-1}
+      SAT32D_WEB_COOKIE_SAMESITE: ${SAT32D_WEB_COOKIE_SAMESITE:-Lax}
+      SAT32D_WEB_ENFORCE_SECURE_DEFAULTS: ${SAT32D_WEB_ENFORCE_SECURE_DEFAULTS:-1}
+    volumes:
+      - ./config.production.yaml:/app/config.production.yaml:ro
+      - sat32d_data:/data
+      - ./web_storage:/app/web_storage
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  sat32d_data:

@@ -1,0 +1,1394 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SAT32D Clientes</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body class="page-dashboard">
+  <main class="dashboard-shell">
+    <div class="page-top-actions">
+      <form action="{{ url_for('logout') }}" method="post">
+        <button class="secondary-button" type="submit">Cerrar sesion</button>
+      </form>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-stack dashboard-flashes">
+          {% for category, message in messages %}
+            <div class="flash flash-{{ category }}" role="status" aria-live="polite">
+              <p class="flash-content">{{ message }}</p>
+              <button class="flash-close" type="button" aria-label="Cerrar notificacion">x</button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <header class="dashboard-header">
+      <div class="dashboard-brand">
+        <p class="eyebrow">Sesion local</p>
+        <h1>Clientes registrados</h1>
+        <p class="lead">RFC activo: <strong>{{ user_rfc }}</strong></p>
+      </div>
+    </header>
+
+    <section class="stats-grid">
+      <article class="stat-card stat-card-summary">
+        <span>Resultados del listado (<strong id="resultados-listado-total">{{ resumen.total or 0 }}</strong> clientes)</span>
+        <div class="stat-summary-grid" role="list" aria-label="Resumen por resultado del listado de clientes">
+          <p role="listitem"><strong id="resultados-listado-positivo">{{ resumen.positivos or 0 }}</strong> Positivo</p>
+          <p role="listitem"><strong id="resultados-listado-negativo">{{ resumen.negativos or 0 }}</strong> Negativo</p>
+          <p role="listitem"><strong id="resultados-listado-otro">{{ resumen.otros_resultados or 0 }}</strong> Otro resultado</p>
+          <p role="listitem"><strong id="resultados-listado-error">{{ resumen.errores or 0 }}</strong> Error</p>
+          <p role="listitem"><strong id="resultados-listado-pendiente">{{ resumen.pendiente_resultado or 0 }}</strong> Pendiente</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="top-actions-grid">
+      <form id="consulta-general-form" class="panel action-card top-action-card" action="{{ url_for('run_robot_from_web') }}" method="post">
+        <input type="hidden" name="robot_name" value="sat32d_locales">
+        <h2>Consultar todas las opiniones</h2>
+        <p class="lead action-description">Ejecuta en una sola accion la consulta de todos los clientes activos registrados en el almacenamiento local. Si detecta una sesion SAT activa del RFC dueno, prioriza TERCERO para las descargas PDF; si no, usa la e.firma almacenada de cada cliente TERCERO y solo deja pendiente lo que no tenga sesion del dueno ni e.firma valida.</p>
+        <div class="action-note-row">
+          <p class="action-note action-note-summary">Clientes activos listos para consulta: <strong>{{ consulta_local_count }}</strong> ({{ consulta_local_resumen.publico }} PUBLICO, {{ consulta_local_resumen.tercero }} TERCERO{% if consulta_local_resumen.tercero_efirma %}; {{ consulta_local_resumen.tercero_efirma }} con e.firma{% endif %})</p>
+          <button class="primary-button consulta-general-button" type="submit">Consultar todas las opiniones</button>
+          <div class="consulta-general-side">
+            <div class="consulta-general-status" aria-live="polite">
+              <span class="consulta-general-status-label">Estatus de consulta general</span>
+              <div class="consulta-general-status-main">
+                <span id="consulta-general-status-badge" class="badge {{ consulta_general_status.badge_class }}">{{ consulta_general_status.label }}</span>
+              </div>
+              <p id="consulta-general-sync-indicator" class="consulta-sync-indicator" hidden>Sincronizando resultados...</p>
+              <p id="consulta-general-status-detail" class="consulta-general-status-detail">
+                {% if consulta_general_status.timestamp %}
+                  <strong>Ultima consulta:</strong> {{ consulta_general_status.timestamp }}
+                {% else %}
+                  Aun no se ha ejecutado una consulta general.
+                {% endif %}
+              </p>
+            </div>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <section id="registered-clients-panel" class="panel table-panel registered-clients-panel">
+      <div class="section-head">
+        <div class="section-head-top">
+          <div class="section-head-title-group">
+            <h2>Listado de clientes registrados</h2>
+            <p class="lead compact">Aqui se muestra el espacio donde quedan visibles los clientes que ya fueron dados de alta.</p>
+          </div>
+          <label class="field section-search section-search-inline" for="client-search-input">
+            <span>Buscar en el listado</span>
+            <input
+              id="client-search-input"
+              type="search"
+              placeholder="Cliente, RFC, modo, resultado u observaciones"
+              autocomplete="off"
+              spellcheck="false"
+              {% if not clientes_registrados %}disabled{% endif %}
+            >
+          </label>
+        </div>
+        <div class="section-actions">
+          <div class="client-filters-row">
+            <div class="client-filters-main">
+              <label class="field" for="client-filter-modo">
+                <span>Modo</span>
+                <select id="client-filter-modo" {% if not clientes_registrados %}disabled{% endif %}>
+                  <option value="">Todos</option>
+                  <option value="PUBLICO">PUBLICO</option>
+                  <option value="TERCERO">TERCERO</option>
+                </select>
+              </label>
+              <label class="field" for="client-filter-activo">
+                <span>Activo</span>
+                <select id="client-filter-activo" {% if not clientes_registrados %}disabled{% endif %}>
+                  <option value="">Todos</option>
+                  <option value="SI">SI</option>
+                  <option value="NO">NO</option>
+                </select>
+              </label>
+              <label class="field" for="client-filter-resultado">
+                <span>Resultado</span>
+                <select id="client-filter-resultado" {% if not clientes_registrados %}disabled{% endif %}>
+                  <option value="">Todos</option>
+                  <option value="PENDIENTE">PENDIENTE</option>
+                  <option value="POSITIVA">POSITIVA</option>
+                  <option value="NEGATIVA">NEGATIVA</option>
+                  <option value="NO_AUTORIZADO">NO_AUTORIZADO</option>
+                  <option value="ERROR">ERROR</option>
+                </select>
+              </label>
+              <button
+                id="client-clear-filters"
+                class="secondary-button compact-button"
+                type="button"
+                {% if not clientes_registrados %}disabled{% endif %}
+              >
+                Limpiar
+              </button>
+              <form id="export-clientes-form" action="{{ url_for('export_clientes_excel') }}" method="get">
+                <input type="hidden" id="export-query" name="q" value="">
+                <input type="hidden" id="export-modo" name="modo" value="">
+                <input type="hidden" id="export-activo" name="activo" value="">
+                <input type="hidden" id="export-resultado" name="resultado" value="">
+                <button
+                  class="secondary-button compact-button"
+                  type="submit"
+                  {% if not clientes_registrados %}disabled{% endif %}
+                >
+                  Exportar a Excel
+                </button>
+              </form>
+            </div>
+            <div class="client-order-actions">
+              <button
+                id="client-open-add-form"
+                class="success-button compact-button"
+                type="button"
+                onclick="openLocalClientForm()"
+              >
+                Añadir cliente
+              </button>
+              <button
+                id="client-toggle-order"
+                class="secondary-button compact-button"
+                type="button"
+                {% if not clientes_registrados %}disabled{% endif %}
+              >
+                Orden: A-Z
+              </button>
+            </div>
+          </div>
+          <p id="client-search-summary" class="search-summary compact" aria-live="polite">
+            Mostrando {{ clientes_registrados|length }} de {{ clientes_registrados|length }} clientes.
+          </p>
+        </div>
+
+        <section id="local-client-form-panel" class="local-client-inline-panel"{% if not show_new_client_form %} hidden{% endif %}>
+          <div class="section-head">
+            <div>
+              <h2>Alta directa de clientes</h2>
+              <p class="lead compact">Agrega clientes en la propia pagina, con sus archivos `.key`, `.cer` y la contrasena de la e.firma del SAT, usando solo el almacenamiento local.</p>
+            </div>
+          </div>
+          <form class="local-client-form" action="{{ url_for('create_local_client') }}" method="post" enctype="multipart/form-data">
+            <div class="fields-grid local-fields-grid">
+              <label class="field">
+                <span>Nombre del cliente</span>
+                <input type="text" name="cliente" value="{{ local_client_form.cliente }}" placeholder="Nombre o razon social" required>
+              </label>
+              <label class="field">
+                <span>RFC del cliente</span>
+                <input type="text" name="rfc" value="{{ local_client_form.rfc }}" placeholder="RFC con homoclave" required>
+              </label>
+              <label class="field">
+                <span>Modo de consulta</span>
+                <select name="modo_consulta">
+                  <option value="PUBLICO"{% if local_client_form.modo_consulta == 'PUBLICO' %} selected{% endif %}>PUBLICO</option>
+                  <option value="TERCERO"{% if local_client_form.modo_consulta == 'TERCERO' %} selected{% endif %}>TERCERO</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Requiere PDF</span>
+                <select name="requiere_pdf">
+                  <option value="SI"{% if local_client_form.requiere_pdf == 'SI' %} selected{% endif %}>SI</option>
+                  <option value="NO"{% if local_client_form.requiere_pdf == 'NO' %} selected{% endif %}>NO</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Activo</span>
+                <select name="activo">
+                  <option value="SI"{% if local_client_form.activo == 'SI' %} selected{% endif %}>SI</option>
+                  <option value="NO"{% if local_client_form.activo == 'NO' %} selected{% endif %}>NO</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Archivo .key</span>
+                <input type="file" name="key_file" accept=".key" required>
+              </label>
+              <label class="field">
+                <span>Archivo .cer</span>
+                <input type="file" name="cer_file" accept=".cer" required>
+              </label>
+              <label class="field local-span-full">
+                <span>Contrasena de la e.firma</span>
+                <input type="password" name="efirma_password" value="{{ local_client_form.efirma_password }}" placeholder="Contrasena de la e.firma del SAT" required>
+              </label>
+              <label class="field local-span-full">
+                <span>Observaciones</span>
+                <textarea name="observaciones" placeholder="Notas internas del cliente">{{ local_client_form.observaciones }}</textarea>
+              </label>
+            </div>
+            <button class="success-button" type="submit">Guardar cliente local</button>
+          </form>
+        </section>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>RFC</th>
+              <th>Modo</th>
+              <th>Activo</th>
+              <th>Resultado</th>
+              <th>Fecha y hora de consulta</th>
+              <th>Observaciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for client in clientes_registrados %}
+              <tr
+                class="client-row"
+                data-client-id="{{ client.id }}"
+                data-modo="{{ client.modo_consulta }}"
+                data-activo="{{ client.activo }}"
+                data-resultado="{{ client.resultado or 'PENDIENTE' }}"
+                data-search-text="{{ (client.cliente ~ ' ' ~ client.rfc ~ ' ' ~ client.modo_consulta ~ ' ' ~ client.activo ~ ' ' ~ (client.resultado or 'PENDIENTE') ~ ' ' ~ (client.fecha_consulta or 'Sin consulta') ~ ' ' ~ (client.observaciones or '') ~ ' ' ~ (client.error_cause_label or ''))|trim }}"
+              >
+                <td>
+                  <button
+                    class="client-name-button"
+                    type="button"
+                    onclick="toggleClientDetail('{{ client.id }}', this)"
+                    aria-expanded="false"
+                    aria-controls="client-detail-{{ client.id }}"
+                  >
+                    {{ client.cliente }}
+                  </button>
+                </td>
+                <td>{{ client.rfc }}</td>
+                <td><span class="badge badge-mode">{{ client.modo_consulta }}</span></td>
+                <td>{{ client.activo }}</td>
+                <td>
+                  <span class="badge badge-status" data-client-result-main="{{ client.id }}">{{ client.resultado or 'PENDIENTE' }}</span>
+                  {% if client.error_cause_label %}
+                    <span class="badge badge-error-cause">{{ client.error_cause_label }}</span>
+                  {% endif %}
+                </td>
+                <td data-client-date-main="{{ client.id }}">{{ client.fecha_consulta or 'Sin consulta' }}</td>
+                <td class="cell-break">{{ client.observaciones }}</td>
+              </tr>
+              <tr id="client-detail-{{ client.id }}" class="client-detail-row" style="display: none;">
+                <td colspan="7">
+                  <div class="client-detail-panel">
+                    <div class="client-detail-grid">
+                      <div>
+                        <h3>Informacion registrada</h3>
+                        <p><strong>Cliente:</strong> {{ client.cliente }}</p>
+                        <p><strong>RFC:</strong> {{ client.rfc }}</p>
+                        <p><strong>Modo de consulta:</strong> {{ client.modo_consulta }}</p>
+                        <p><strong>Requiere PDF:</strong> {{ client.requiere_pdf }}</p>
+                        <p><strong>Activo:</strong> {{ client.activo }}</p>
+                        <p><strong>Estado e.firma:</strong> {{ client.efirma_status }}</p>
+                        <p><strong>Resultado:</strong> <span data-client-result-detail="{{ client.id }}">{{ client.resultado or 'PENDIENTE' }}</span></p>
+                        {% if client.error_cause_label %}
+                          <p><strong>Causa error:</strong> <span class="badge badge-error-cause">{{ client.error_cause_label }}</span></p>
+                        {% endif %}
+                        <p><strong>Fecha consulta:</strong> <span data-client-date-detail="{{ client.id }}">{{ client.fecha_consulta or 'Sin fecha' }}</span></p>
+                        <p><strong>Archivo:</strong> {{ client.archivo or 'Sin archivo' }}</p>
+                        <p><strong>Archivo .key:</strong> {{ client.key_file_name }}</p>
+                        <p><strong>Archivo .cer:</strong> {{ client.cer_file_name }}</p>
+                        <p><strong>Alta:</strong> {{ client.created_at }}</p>
+                        <p><strong>Notas del cliente:</strong> {{ client.notas_cliente or 'Sin notas' }}</p>
+                        <p><strong>Observaciones resultado:</strong> {{ client.resultado_observaciones or 'Sin observaciones' }}</p>
+                      </div>
+                      <div>
+                        <h3>Editar cliente</h3>
+                        <form id="edit-form-{{ client.id }}" class="local-client-form compact-form" action="{{ url_for('edit_local_client', client_id=client.id) }}" method="post" enctype="multipart/form-data">
+                          <fieldset id="edit-fieldset-{{ client.id }}" class="client-edit-fieldset" disabled>
+                            <div class="fields-grid local-fields-grid">
+                              <label class="field">
+                                <span>Nombre del cliente</span>
+                                <input type="text" name="cliente" value="{{ client.cliente }}" required>
+                              </label>
+                              <label class="field">
+                                <span>RFC del cliente</span>
+                                <input type="text" name="rfc" value="{{ client.rfc }}" required>
+                              </label>
+                              <label class="field">
+                                <span>Modo de consulta</span>
+                                <select name="modo_consulta">
+                                  <option value="PUBLICO"{% if client.modo_consulta == 'PUBLICO' %} selected{% endif %}>PUBLICO</option>
+                                  <option value="TERCERO"{% if client.modo_consulta == 'TERCERO' %} selected{% endif %}>TERCERO</option>
+                                </select>
+                              </label>
+                              <label class="field">
+                                <span>Requiere PDF</span>
+                                <select name="requiere_pdf">
+                                  <option value="SI"{% if client.requiere_pdf == 'SI' %} selected{% endif %}>SI</option>
+                                  <option value="NO"{% if client.requiere_pdf == 'NO' %} selected{% endif %}>NO</option>
+                                </select>
+                              </label>
+                              <label class="field">
+                                <span>Activo</span>
+                                <select name="activo">
+                                  <option value="SI"{% if client.activo == 'SI' %} selected{% endif %}>SI</option>
+                                  <option value="NO"{% if client.activo == 'NO' %} selected{% endif %}>NO</option>
+                                </select>
+                              </label>
+                              <label class="field local-span-full">
+                                <span>Contrasena de la e.firma</span>
+                                <input type="password" name="efirma_password" value="{{ client.efirma_password }}" required>
+                              </label>
+                              <label class="field">
+                                <span>Nuevo archivo .key (opcional)</span>
+                                <input type="file" name="key_file" accept=".key">
+                              </label>
+                              <label class="field">
+                                <span>Nuevo archivo .cer (opcional)</span>
+                                <input type="file" name="cer_file" accept=".cer">
+                              </label>
+                              <p class="lead compact local-span-full">Si deseas reemplazar la e.firma, adjunta ambos archivos (.key y .cer). Si no adjuntas archivos, se conservan los actuales.</p>
+                              <label class="field local-span-full">
+                                <span>Observaciones</span>
+                                <textarea name="observaciones">{{ client.notas_cliente }}</textarea>
+                              </label>
+                            </div>
+                          </fieldset>
+                        </form>
+                        <form id="delete-form-{{ client.id }}" action="{{ url_for('delete_local_client', client_id=client.id) }}" method="post"></form>
+                        <div class="client-detail-actions">
+                          <button class="success-button" type="submit" form="edit-form-{{ client.id }}" disabled hidden data-save-button="{{ client.id }}">Guardar cambios</button>
+                          <button
+                            class="primary-button"
+                            type="button"
+                            data-query-url="{{ url_for('consult_local_client_individual', client_id=client.id) }}"
+                            onclick="runIndividualConsulta('{{ client.id }}', this)"
+                          >Consulta individual</button>
+                          <button class="warning-button" type="button" data-edit-button="{{ client.id }}" onclick="enableClientEdit('{{ client.id }}', this)">Editar</button>
+                          <button class="danger-button" type="submit" form="delete-form-{{ client.id }}" onclick="return confirm('¿Eliminar este cliente local? Esta accion no se puede deshacer.');">Eliminar</button>
+                        </div>
+                        <p class="search-summary compact" data-individual-feedback="{{ client.id }}" aria-live="polite"></p>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            {% else %}
+              <tr>
+                <td colspan="7" class="empty-state">Todavia no hay clientes registrados en el almacenamiento local.</td>
+              </tr>
+            {% endfor %}
+            {% if clientes_registrados %}
+              <tr id="client-search-empty" hidden>
+                <td colspan="7" class="empty-state">No hay clientes que coincidan con la busqueda actual.</td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+      <div id="client-pagination-controls" class="client-pagination client-pagination-bottom">
+        <button
+          id="client-page-prev"
+          class="secondary-button compact-button"
+          type="button"
+          {% if clientes_registrados|length <= 20 %}disabled{% endif %}
+        >
+          Anterior
+        </button>
+        <p id="client-page-indicator" class="search-summary compact" aria-live="polite">Pagina 1 de 1</p>
+        <button
+          id="client-page-next"
+          class="secondary-button compact-button"
+          type="button"
+          {% if clientes_registrados|length <= 20 %}disabled{% endif %}
+        >
+          Siguiente
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <button
+    id="floating-search-button"
+    class="floating-search-button"
+    type="button"
+    aria-label="Volver al inicio del listado de clientes"
+    title="Subir al listado de clientes"
+    {% if not clientes_registrados %}hidden{% endif %}
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 19V5"></path>
+      <path d="M6 11L12 5L18 11"></path>
+    </svg>
+  </button>
+
+  <script>
+    window.consultaJobsConfig = {
+      statusUrlTemplate: "{{ url_for('get_robot_job_status', job_id='__JOB_ID__') }}",
+      pendingGeneralJobId: "{{ pending_general_job_id or '' }}"
+    };
+  </script>
+
+  <script>
+    var CLIENTS_PER_PAGE = 20;
+    var clientPaginationState = {
+      page: 1,
+      pageSize: CLIENTS_PER_PAGE
+    };
+    var clientSortState = {
+      order: 'asc'
+    };
+
+    var CONSULTA_JOB_POLL_MS = 3500;
+
+    function buildConsultaJobStatusUrl(jobId) {
+      var template = window.consultaJobsConfig && window.consultaJobsConfig.statusUrlTemplate;
+      if (!template || !jobId) {
+        return '';
+      }
+
+      return template.replace('__JOB_ID__', encodeURIComponent(jobId));
+    }
+
+    function resolveConsultaBadgeClass(status) {
+      var normalized = (status || '').toString().trim().toLowerCase();
+      if (normalized === 'running') {
+        return 'badge-job-running';
+      }
+      if (normalized === 'completed') {
+        return 'badge-job-completed';
+      }
+      if (normalized === 'error') {
+        return 'badge-job-error';
+      }
+      return 'badge-job-queued';
+    }
+
+    function updateConsultaGeneralStatusCard(data) {
+      if (!data) {
+        return;
+      }
+
+      var badge = document.getElementById('consulta-general-status-badge');
+      if (badge) {
+        badge.className = 'badge ' + resolveConsultaBadgeClass(data.status);
+        if (data.status_label) {
+          badge.textContent = data.status_label;
+        }
+      }
+
+      var detail = document.getElementById('consulta-general-status-detail');
+      if (detail) {
+        var finishedAt = (data.finished_at || '').toString().trim();
+        var startedAt = (data.started_at || '').toString().trim();
+        var summary = (data.summary || '').toString().trim();
+        var detailText = '';
+
+        if (finishedAt) {
+          detailText = 'Ultima consulta: ' + finishedAt;
+        } else if (startedAt) {
+          detailText = 'Consulta iniciada: ' + startedAt;
+        } else {
+          detailText = 'Aun no se ha ejecutado una consulta general.';
+        }
+
+        if (summary) {
+          detailText += ' | ' + summary;
+        }
+
+        detail.textContent = detailText;
+      }
+    }
+
+    function startConsultaJobWatcher(jobId, feedbackElement, options) {
+      if (!jobId) {
+        return;
+      }
+
+      var watcherOptions = options || {};
+      var updateGeneralCard = watcherOptions.updateGeneralCard === true;
+
+      var statusUrl = buildConsultaJobStatusUrl(jobId);
+      if (!statusUrl) {
+        return;
+      }
+
+      var stopped = false;
+
+      if (feedbackElement) {
+        feedbackElement.hidden = false;
+        feedbackElement.classList.add('is-active');
+      }
+
+      function scheduleNextPoll() {
+        if (stopped) {
+          return;
+        }
+        window.setTimeout(pollJobStatus, CONSULTA_JOB_POLL_MS);
+      }
+
+      async function pollJobStatus() {
+        try {
+          var response = await fetch(statusUrl, {
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest'
+            }
+          });
+
+          if (!response.ok) {
+            scheduleNextPoll();
+            return;
+          }
+
+          var data = await response.json();
+          if (!data.ok) {
+            scheduleNextPoll();
+            return;
+          }
+
+          if (updateGeneralCard) {
+            updateConsultaGeneralStatusCard(data);
+          }
+
+          if (feedbackElement && data.status_label) {
+            feedbackElement.textContent = 'Consulta en proceso (' + data.status_label + ')...';
+          }
+
+          if (data.finished) {
+            stopped = true;
+            if (feedbackElement) {
+              feedbackElement.classList.remove('is-active');
+              feedbackElement.textContent = data.summary || 'Consulta finalizada. Actualizando pagina...';
+            }
+            window.setTimeout(function () {
+              window.location.reload();
+            }, 500);
+            return;
+          }
+        } catch (error) {
+          // Ignorar errores transitorios y seguir sondeando.
+        }
+
+        scheduleNextPoll();
+      }
+
+      window.setTimeout(pollJobStatus, 1200);
+    }
+
+    function enableClientEdit(clientId, button) {
+      var form = document.getElementById('edit-form-' + clientId);
+      var fieldset = document.getElementById('edit-fieldset-' + clientId);
+      if (!form) {
+        return;
+      }
+
+      if (fieldset) {
+        fieldset.disabled = false;
+      }
+
+      var saveButton = document.querySelector('[data-save-button="' + clientId + '"]');
+      if (saveButton) {
+        saveButton.hidden = false;
+        saveButton.disabled = false;
+      }
+
+      button.disabled = true;
+    }
+
+    function toggleClientDetail(clientId, button) {
+      var detailRow = document.getElementById('client-detail-' + clientId);
+      if (!detailRow) {
+        return;
+      }
+
+      var isExpanded = button.getAttribute('aria-expanded') === 'true';
+
+      document.querySelectorAll('.client-name-button').forEach(function (item) {
+        item.setAttribute('aria-expanded', 'false');
+      });
+
+      document.querySelectorAll('.client-detail-row').forEach(function (row) {
+        var rowClientId = row.id.replace('client-detail-', '');
+        var rowFieldset = document.getElementById('edit-fieldset-' + rowClientId);
+        var rowSaveButton = document.querySelector('[data-save-button="' + rowClientId + '"]');
+        var rowEditButton = document.querySelector('[data-edit-button="' + rowClientId + '"]');
+
+        if (rowFieldset) {
+          rowFieldset.disabled = true;
+        }
+
+        if (rowSaveButton) {
+          rowSaveButton.hidden = true;
+          rowSaveButton.disabled = true;
+        }
+
+        if (rowEditButton) {
+          rowEditButton.disabled = false;
+        }
+
+        row.style.display = 'none';
+        row.classList.remove('is-open');
+      });
+
+      if (!isExpanded) {
+        button.setAttribute('aria-expanded', 'true');
+        detailRow.style.display = 'table-row';
+        detailRow.classList.add('is-open');
+      }
+    }
+
+    function normalizeClientResult(value) {
+      return (value || 'PENDIENTE').toString().trim().toUpperCase() || 'PENDIENTE';
+    }
+
+    function updateClientSearchText(row) {
+      if (!row) {
+        return;
+      }
+
+      var clientId = row.dataset.clientId;
+      var resultMain = document.querySelector('[data-client-result-main="' + clientId + '"]');
+      var dateMain = document.querySelector('[data-client-date-main="' + clientId + '"]');
+      var baseText = [
+        row.cells[0] ? row.cells[0].innerText : '',
+        row.cells[1] ? row.cells[1].innerText : '',
+        row.dataset.modo || '',
+        row.dataset.activo || '',
+        resultMain ? resultMain.textContent : '',
+        dateMain ? dateMain.textContent : '',
+        row.cells[6] ? row.cells[6].innerText : ''
+      ].join(' ');
+
+      row.dataset.searchText = baseText.trim();
+    }
+
+    async function runIndividualConsulta(clientId, button) {
+      if (!button || button.disabled) {
+        return;
+      }
+
+      var queryUrl = button.getAttribute('data-query-url');
+      var feedback = document.querySelector('[data-individual-feedback="' + clientId + '"]');
+      if (!queryUrl) {
+        if (feedback) {
+          feedback.textContent = 'No se pudo iniciar la consulta individual.';
+        }
+        return;
+      }
+
+      var originalLabel = button.textContent;
+      var keepDisabled = false;
+      button.disabled = true;
+      button.textContent = 'Consultando...';
+      if (feedback) {
+        feedback.textContent = 'Consulta en proceso...';
+      }
+
+      try {
+        var response = await fetch(queryUrl, {
+          method: 'POST',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        });
+        var data = await response.json();
+        if (!response.ok || !data.ok) {
+          throw new Error((data && data.message) ? data.message : 'No fue posible completar la consulta individual.');
+        }
+
+        var normalizedResult = normalizeClientResult(data.resultado);
+        var normalizedDate = (data.fecha_consulta || 'Sin fecha').toString();
+        var resultMain = document.querySelector('[data-client-result-main="' + clientId + '"]');
+        var dateMain = document.querySelector('[data-client-date-main="' + clientId + '"]');
+        var resultDetail = document.querySelector('[data-client-result-detail="' + clientId + '"]');
+        var dateDetail = document.querySelector('[data-client-date-detail="' + clientId + '"]');
+        var row = document.querySelector('.client-row[data-client-id="' + clientId + '"]');
+
+        if (resultMain) {
+          resultMain.textContent = normalizedResult;
+        }
+        if (dateMain) {
+          dateMain.textContent = normalizedDate;
+        }
+        if (resultDetail) {
+          resultDetail.textContent = normalizedResult;
+        }
+        if (dateDetail) {
+          dateDetail.textContent = normalizedDate;
+        }
+        if (row) {
+          row.dataset.resultado = normalizedResult;
+          updateClientSearchText(row);
+        }
+
+        if (feedback) {
+          feedback.textContent = data.message || 'Consulta individual completada.';
+        }
+        applyClientFilter();
+
+        if (data.job_id) {
+          keepDisabled = true;
+          if (feedback) {
+            feedback.textContent = 'Consulta en proceso. La pagina se actualizara al finalizar.';
+          }
+          startConsultaJobWatcher(data.job_id, feedback, { updateGeneralCard: false });
+        }
+      } catch (error) {
+        if (feedback) {
+          feedback.textContent = error.message || 'No fue posible completar la consulta individual.';
+        }
+      } finally {
+        if (keepDisabled) {
+          button.disabled = true;
+          button.textContent = 'En proceso...';
+        } else {
+          button.disabled = false;
+          button.textContent = originalLabel;
+        }
+      }
+    }
+
+    function openLocalClientForm() {
+      var panel = document.getElementById('local-client-form-panel');
+      if (!panel) {
+        return;
+      }
+
+      panel.hidden = false;
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      var firstInput = panel.querySelector('input[name="cliente"]');
+      if (firstInput) {
+        firstInput.focus();
+      }
+    }
+
+    function closeLocalClientForm() {
+      var panel = document.getElementById('local-client-form-panel');
+      if (!panel) {
+        return;
+      }
+
+      panel.hidden = true;
+    }
+
+    function normalizeClientSearchValue(value) {
+      return (value || '')
+        .toString()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+    }
+
+    function formatClientCountLabel(count) {
+      return count === 1 ? 'cliente' : 'clientes';
+    }
+
+    function resetClientPagination() {
+      clientPaginationState.page = 1;
+    }
+
+    function normalizeClientSortOrder(value) {
+      var normalized = (value || '').toString().trim().toLowerCase();
+      return normalized === 'desc' ? 'desc' : 'asc';
+    }
+
+    function updateClientOrderToggleButtonLabel() {
+      var toggleButton = document.getElementById('client-toggle-order');
+      if (!toggleButton) {
+        return;
+      }
+
+      toggleButton.textContent = clientSortState.order === 'desc' ? 'Orden: Z-A' : 'Orden: A-Z';
+    }
+
+    function reorderClientRowsInDom() {
+      var tbody = document.querySelector('#registered-clients-panel tbody');
+      if (!tbody) {
+        return;
+      }
+
+      var rows = Array.prototype.slice.call(tbody.querySelectorAll('.client-row'));
+      if (!rows.length) {
+        return;
+      }
+
+      var direction = clientSortState.order === 'desc' ? -1 : 1;
+      rows.sort(function (left, right) {
+        var leftName = normalizeClientSearchValue(left.cells[0] ? left.cells[0].innerText : '');
+        var rightName = normalizeClientSearchValue(right.cells[0] ? right.cells[0].innerText : '');
+        return leftName.localeCompare(rightName, 'es') * direction;
+      });
+
+      rows.forEach(function (row) {
+        var detailRow = document.getElementById('client-detail-' + row.dataset.clientId);
+        tbody.appendChild(row);
+        if (detailRow) {
+          tbody.appendChild(detailRow);
+        }
+      });
+
+      var emptyRow = document.getElementById('client-search-empty');
+      if (emptyRow) {
+        tbody.appendChild(emptyRow);
+      }
+    }
+
+    function clearClientListUrlState() {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+
+    function updateClientPaginationControls(totalFilteredCount) {
+      var controls = document.getElementById('client-pagination-controls');
+      var prevButton = document.getElementById('client-page-prev');
+      var nextButton = document.getElementById('client-page-next');
+      var indicator = document.getElementById('client-page-indicator');
+
+      if (!controls || !prevButton || !nextButton || !indicator) {
+        return 1;
+      }
+
+      var pageSize = clientPaginationState.pageSize;
+      var totalPages = Math.max(1, Math.ceil(totalFilteredCount / pageSize));
+
+      if (clientPaginationState.page > totalPages) {
+        clientPaginationState.page = totalPages;
+      }
+
+      if (clientPaginationState.page < 1) {
+        clientPaginationState.page = 1;
+      }
+
+      controls.hidden = false;
+      prevButton.disabled = totalPages <= 1 || clientPaginationState.page <= 1;
+      nextButton.disabled = totalPages <= 1 || clientPaginationState.page >= totalPages;
+
+      indicator.textContent = 'Pagina ' + clientPaginationState.page + ' de ' + totalPages;
+      return totalPages;
+    }
+
+    function classifyResultForSummary(result) {
+      var normalized = normalizeClientResult(result);
+      if (normalized === 'POSITIVA' || normalized === 'POSITIVO') {
+        return 'positivo';
+      }
+      if (normalized === 'NEGATIVA' || normalized === 'NEGATIVO') {
+        return 'negativo';
+      }
+      if (normalized === 'ERROR') {
+        return 'error';
+      }
+      if (
+        !normalized ||
+        normalized === 'PENDIENTE' ||
+        normalized === 'CAPTCHA_PENDIENTE' ||
+        normalized === 'PENDIENTE_SESION_SAT'
+      ) {
+        return 'pendiente';
+      }
+      return 'otro';
+    }
+
+    function updateListadoResultSummaryCard(rows) {
+      var positiveNode = document.getElementById('resultados-listado-positivo');
+      var negativeNode = document.getElementById('resultados-listado-negativo');
+      var otherNode = document.getElementById('resultados-listado-otro');
+      var errorNode = document.getElementById('resultados-listado-error');
+      var pendingNode = document.getElementById('resultados-listado-pendiente');
+      var totalNode = document.getElementById('resultados-listado-total');
+
+      if (!positiveNode || !negativeNode || !otherNode || !errorNode || !pendingNode || !totalNode) {
+        return;
+      }
+
+      var counts = {
+        positivo: 0,
+        negativo: 0,
+        otro: 0,
+        error: 0,
+        pendiente: 0,
+      };
+
+      rows.forEach(function (row) {
+        var classification = classifyResultForSummary(row.dataset.resultado || 'PENDIENTE');
+        counts[classification] += 1;
+      });
+
+      positiveNode.textContent = String(counts.positivo);
+      negativeNode.textContent = String(counts.negativo);
+      otherNode.textContent = String(counts.otro);
+      errorNode.textContent = String(counts.error);
+      pendingNode.textContent = String(counts.pendiente);
+      totalNode.textContent = String(rows.length);
+    }
+
+    function collectUniqueClientFilterValues(rows, datasetKey) {
+      var seen = {};
+      var values = [];
+
+      rows.forEach(function (row) {
+        var rawValue = (row.dataset[datasetKey] || '').toString().trim();
+        var normalizedValue = normalizeClientSearchValue(rawValue);
+
+        if (!rawValue || seen[normalizedValue]) {
+          return;
+        }
+
+        seen[normalizedValue] = true;
+        values.push({
+          value: rawValue,
+          sortKey: normalizedValue,
+        });
+      });
+
+      values.sort(function (left, right) {
+        return left.sortKey.localeCompare(right.sortKey, 'es');
+      });
+
+      return values.map(function (entry) {
+        return entry.value;
+      });
+    }
+
+    function populateClientFilterSelect(selectElement, values) {
+      if (!selectElement) {
+        return;
+      }
+
+      var currentValue = selectElement.value || '';
+
+      selectElement.innerHTML = '';
+      selectElement.appendChild(new Option('Todos', ''));
+
+      values.forEach(function (value) {
+        selectElement.appendChild(new Option(value, value));
+      });
+
+      if (currentValue && values.indexOf(currentValue) !== -1) {
+        selectElement.value = currentValue;
+      } else {
+        selectElement.value = '';
+      }
+    }
+
+    function initializeClientFilterOptions() {
+      var rows = Array.prototype.slice.call(document.querySelectorAll('.client-row'));
+      var modoSelect = document.getElementById('client-filter-modo');
+      var activoSelect = document.getElementById('client-filter-activo');
+      var resultadoSelect = document.getElementById('client-filter-resultado');
+
+      populateClientFilterSelect(modoSelect, collectUniqueClientFilterValues(rows, 'modo'));
+      populateClientFilterSelect(activoSelect, collectUniqueClientFilterValues(rows, 'activo'));
+      populateClientFilterSelect(resultadoSelect, collectUniqueClientFilterValues(rows, 'resultado'));
+    }
+
+    function findSelectOptionValueCaseInsensitive(selectElement, rawValue) {
+      if (!selectElement || !rawValue) {
+        return '';
+      }
+
+      var normalizedRaw = rawValue.toString().trim().toUpperCase();
+      var matchingOption = Array.prototype.find.call(selectElement.options, function (option) {
+        return (option.value || '').toString().trim().toUpperCase() === normalizedRaw;
+      });
+
+      return matchingOption ? matchingOption.value : '';
+    }
+
+    function setClientListExportFilters(query, modo, activo, resultado) {
+      var exportQuery = document.getElementById('export-query');
+      var exportModo = document.getElementById('export-modo');
+      var exportActivo = document.getElementById('export-activo');
+      var exportResultado = document.getElementById('export-resultado');
+
+      if (exportQuery) {
+        exportQuery.value = query || '';
+      }
+      if (exportModo) {
+        exportModo.value = modo || '';
+      }
+      if (exportActivo) {
+        exportActivo.value = activo || '';
+      }
+      if (exportResultado) {
+        exportResultado.value = resultado || '';
+      }
+    }
+
+    function updateClientListUrlState() {
+      var input = document.getElementById('client-search-input');
+      var modoSelect = document.getElementById('client-filter-modo');
+      var activoSelect = document.getElementById('client-filter-activo');
+      var resultadoSelect = document.getElementById('client-filter-resultado');
+      var params = new URLSearchParams(window.location.search);
+
+      var queryValue = input ? (input.value || '').trim() : '';
+      var modoValue = modoSelect ? (modoSelect.value || '').trim() : '';
+      var activoValue = activoSelect ? (activoSelect.value || '').trim() : '';
+      var resultadoValue = resultadoSelect ? (resultadoSelect.value || '').trim() : '';
+
+      if (queryValue) {
+        params.set('q', queryValue);
+      } else {
+        params.delete('q');
+      }
+
+      if (modoValue) {
+        params.set('modo', modoValue);
+      } else {
+        params.delete('modo');
+      }
+
+      if (activoValue) {
+        params.set('activo', activoValue);
+      } else {
+        params.delete('activo');
+      }
+
+      if (resultadoValue) {
+        params.set('resultado', resultadoValue);
+      } else {
+        params.delete('resultado');
+      }
+
+      if (clientPaginationState.page > 1) {
+        params.set('page', String(clientPaginationState.page));
+      } else {
+        params.delete('page');
+      }
+
+      if (clientSortState.order === 'desc') {
+        params.set('sort', 'desc');
+      } else {
+        params.delete('sort');
+      }
+
+      var queryString = params.toString();
+      var nextUrl = window.location.pathname + (queryString ? ('?' + queryString) : '');
+      window.history.replaceState(null, '', nextUrl);
+      setClientListExportFilters(queryValue, modoValue, activoValue, resultadoValue);
+    }
+
+    function initializeClientListStateFromUrl() {
+      var input = document.getElementById('client-search-input');
+      var modoSelect = document.getElementById('client-filter-modo');
+      var activoSelect = document.getElementById('client-filter-activo');
+      var resultadoSelect = document.getElementById('client-filter-resultado');
+      var params = new URLSearchParams(window.location.search);
+
+      var queryFromUrl = (params.get('q') || '').trim();
+      var modoFromUrl = (params.get('modo') || '').trim();
+      var activoFromUrl = (params.get('activo') || '').trim();
+      var resultadoFromUrl = (params.get('resultado') || '').trim();
+      var pageFromUrl = Number.parseInt((params.get('page') || '1').trim(), 10);
+      var sortFromUrl = normalizeClientSortOrder(params.get('sort') || 'asc');
+
+      if (input) {
+        input.value = queryFromUrl;
+      }
+
+      if (modoSelect) {
+        modoSelect.value = '';
+        if (modoFromUrl) {
+          var normalizedModoValue = findSelectOptionValueCaseInsensitive(modoSelect, modoFromUrl);
+          if (normalizedModoValue) {
+            modoSelect.value = normalizedModoValue;
+          }
+        }
+      }
+
+      if (activoSelect) {
+        activoSelect.value = '';
+        if (activoFromUrl) {
+          var normalizedActivoValue = findSelectOptionValueCaseInsensitive(activoSelect, activoFromUrl);
+          if (normalizedActivoValue) {
+            activoSelect.value = normalizedActivoValue;
+          }
+        }
+      }
+
+      if (resultadoSelect) {
+        resultadoSelect.value = '';
+        if (resultadoFromUrl) {
+          var normalizedResultadoValue = findSelectOptionValueCaseInsensitive(resultadoSelect, resultadoFromUrl);
+          if (normalizedResultadoValue) {
+            resultadoSelect.value = normalizedResultadoValue;
+          }
+        }
+      }
+
+      if (Number.isFinite(pageFromUrl) && pageFromUrl > 0) {
+        clientPaginationState.page = pageFromUrl;
+      } else {
+        clientPaginationState.page = 1;
+      }
+
+      clientSortState.order = sortFromUrl;
+      updateClientOrderToggleButtonLabel();
+
+      setClientListExportFilters(queryFromUrl, modoFromUrl, activoFromUrl, resultadoFromUrl);
+    }
+
+    function applyClientFilter() {
+      var input = document.getElementById('client-search-input');
+      var modoSelect = document.getElementById('client-filter-modo');
+      var activoSelect = document.getElementById('client-filter-activo');
+      var resultadoSelect = document.getElementById('client-filter-resultado');
+      var summary = document.getElementById('client-search-summary');
+      var emptyRow = document.getElementById('client-search-empty');
+      reorderClientRowsInDom();
+
+      var rows = document.querySelectorAll('.client-row');
+      var query = normalizeClientSearchValue(input ? input.value : '');
+      var selectedModo = normalizeClientSearchValue(modoSelect ? modoSelect.value : '');
+      var selectedActivo = normalizeClientSearchValue(activoSelect ? activoSelect.value : '');
+      var selectedResultado = normalizeClientSearchValue(resultadoSelect ? resultadoSelect.value : '');
+      var visibleCount = 0;
+      var firstVisibleRowIndex = 0;
+      var lastVisibleRowIndex = 0;
+      var totalCount = rows.length;
+      var matchingRows = [];
+
+      updateListadoResultSummaryCard(Array.prototype.slice.call(rows));
+
+      rows.forEach(function (row) {
+        var searchText = normalizeClientSearchValue(row.dataset.searchText || row.textContent);
+        var rowModo = normalizeClientSearchValue(row.dataset.modo || '');
+        var rowActivo = normalizeClientSearchValue(row.dataset.activo || '');
+        var rowResultado = normalizeClientSearchValue(row.dataset.resultado || '');
+        var detailRow = document.getElementById('client-detail-' + row.dataset.clientId);
+        var matchesQuery = !query || searchText.indexOf(query) !== -1;
+        var matchesModo = !selectedModo || rowModo === selectedModo;
+        var matchesActivo = !selectedActivo || rowActivo === selectedActivo;
+        var matchesResultado = !selectedResultado || rowResultado === selectedResultado;
+        var isMatch = matchesQuery && matchesModo && matchesActivo && matchesResultado;
+
+        row.hidden = !isMatch;
+
+        if (detailRow) {
+          detailRow.hidden = !isMatch;
+
+          if (!isMatch) {
+            detailRow.style.display = 'none';
+            detailRow.classList.remove('is-open');
+
+            var toggleButton = row.querySelector('.client-name-button');
+            if (toggleButton) {
+              toggleButton.setAttribute('aria-expanded', 'false');
+            }
+          }
+        }
+
+        if (isMatch) {
+          matchingRows.push(row);
+        }
+      });
+
+      updateClientPaginationControls(matchingRows.length);
+
+      var pageStartIndex = (clientPaginationState.page - 1) * clientPaginationState.pageSize;
+      var pageEndIndex = pageStartIndex + clientPaginationState.pageSize;
+
+      matchingRows.forEach(function (row, index) {
+        var isInPage = index >= pageStartIndex && index < pageEndIndex;
+        var detailRow = document.getElementById('client-detail-' + row.dataset.clientId);
+
+        row.hidden = !isInPage;
+
+        if (detailRow) {
+          detailRow.hidden = !isInPage;
+
+          if (!isInPage) {
+            detailRow.style.display = 'none';
+            detailRow.classList.remove('is-open');
+
+            var toggleButton = row.querySelector('.client-name-button');
+            if (toggleButton) {
+              toggleButton.setAttribute('aria-expanded', 'false');
+            }
+          }
+        }
+
+        if (isInPage) {
+          visibleCount += 1;
+          if (firstVisibleRowIndex === 0) {
+            firstVisibleRowIndex = index + 1;
+          }
+          lastVisibleRowIndex = index + 1;
+        }
+      });
+
+      if (summary) {
+        if (!matchingRows.length) {
+          summary.textContent = 'Mostrando 0 de ' + totalCount + ' ' + formatClientCountLabel(totalCount) + '.';
+        } else {
+          summary.textContent = 'Mostrando ' + firstVisibleRowIndex + '-' + lastVisibleRowIndex + ' de ' + matchingRows.length + ' ' + formatClientCountLabel(matchingRows.length) + ' filtrados.';
+        }
+      }
+
+      if (emptyRow) {
+        emptyRow.hidden = visibleCount !== 0;
+      }
+
+      updateClientListUrlState();
+    }
+
+    initializeClientFilterOptions();
+    initializeClientListStateFromUrl();
+
+    var clientSearchInput = document.getElementById('client-search-input');
+    if (clientSearchInput) {
+      clientSearchInput.addEventListener('input', function () {
+        resetClientPagination();
+        applyClientFilter();
+      });
+    }
+
+    var clientFilterModo = document.getElementById('client-filter-modo');
+    if (clientFilterModo) {
+      clientFilterModo.addEventListener('change', function () {
+        resetClientPagination();
+        applyClientFilter();
+      });
+    }
+
+    var clientFilterActivo = document.getElementById('client-filter-activo');
+    if (clientFilterActivo) {
+      clientFilterActivo.addEventListener('change', function () {
+        resetClientPagination();
+        applyClientFilter();
+      });
+    }
+
+    var clientFilterResultado = document.getElementById('client-filter-resultado');
+    if (clientFilterResultado) {
+      clientFilterResultado.addEventListener('change', function () {
+        resetClientPagination();
+        applyClientFilter();
+      });
+    }
+
+    var clientPagePrevButton = document.getElementById('client-page-prev');
+    if (clientPagePrevButton) {
+      clientPagePrevButton.addEventListener('click', function () {
+        if (clientPaginationState.page > 1) {
+          clientPaginationState.page -= 1;
+          applyClientFilter();
+        }
+      });
+    }
+
+    var clientPageNextButton = document.getElementById('client-page-next');
+    if (clientPageNextButton) {
+      clientPageNextButton.addEventListener('click', function () {
+        clientPaginationState.page += 1;
+        applyClientFilter();
+      });
+    }
+
+    var clientToggleOrderButton = document.getElementById('client-toggle-order');
+    if (clientToggleOrderButton) {
+      clientToggleOrderButton.addEventListener('click', function () {
+        clientSortState.order = clientSortState.order === 'asc' ? 'desc' : 'asc';
+        updateClientOrderToggleButtonLabel();
+        resetClientPagination();
+        applyClientFilter();
+      });
+    }
+
+    var clientClearFiltersButton = document.getElementById('client-clear-filters');
+    if (clientClearFiltersButton) {
+      clientClearFiltersButton.addEventListener('click', function () {
+        if (clientSearchInput) {
+          clientSearchInput.value = '';
+        }
+        if (clientFilterModo) {
+          clientFilterModo.value = '';
+        }
+        if (clientFilterActivo) {
+          clientFilterActivo.value = '';
+        }
+        if (clientFilterResultado) {
+          clientFilterResultado.value = '';
+        }
+        clientSortState.order = 'asc';
+        updateClientOrderToggleButtonLabel();
+        resetClientPagination();
+        setClientListExportFilters('', '', '', '');
+        clearClientListUrlState();
+        applyClientFilter();
+      });
+    }
+
+    var openAddClientButton = document.getElementById('client-open-add-form');
+    if (openAddClientButton) {
+      openAddClientButton.addEventListener('click', openLocalClientForm);
+    }
+
+    var floatingSearchButton = document.getElementById('floating-search-button');
+    var registeredClientsPanel = document.getElementById('registered-clients-panel');
+
+    function updateFloatingSearchButtonVisibility() {
+      if (!floatingSearchButton || !registeredClientsPanel) {
+        return;
+      }
+
+      if (window.scrollY > 280) {
+        floatingSearchButton.classList.add('is-visible');
+      } else {
+        floatingSearchButton.classList.remove('is-visible');
+      }
+    }
+
+    if (floatingSearchButton && registeredClientsPanel) {
+      floatingSearchButton.addEventListener('click', function () {
+        registeredClientsPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+
+      window.addEventListener('scroll', updateFloatingSearchButtonVisibility, { passive: true });
+      updateFloatingSearchButtonVisibility();
+    }
+
+    var consultaGeneralForm = document.getElementById('consulta-general-form');
+    if (consultaGeneralForm) {
+      consultaGeneralForm.addEventListener('submit', function () {
+        var generalButton = consultaGeneralForm.querySelector('.consulta-general-button');
+        if (generalButton) {
+          generalButton.disabled = true;
+          generalButton.textContent = 'Iniciando consulta...';
+        }
+      });
+    }
+
+    var pendingGeneralJobId = (window.consultaJobsConfig && window.consultaJobsConfig.pendingGeneralJobId) || '';
+    var generalSyncIndicator = document.getElementById('consulta-general-sync-indicator');
+    if (pendingGeneralJobId) {
+      startConsultaJobWatcher(pendingGeneralJobId, generalSyncIndicator, { updateGeneralCard: true });
+    }
+
+    document.addEventListener('click', function (event) {
+      var panel = document.getElementById('local-client-form-panel');
+      var button = document.getElementById('client-open-add-form');
+
+      if (!panel || panel.hidden) {
+        return;
+      }
+
+      var target = event.target;
+      if (panel.contains(target)) {
+        return;
+      }
+
+      if (button && button.contains(target)) {
+        return;
+      }
+
+      closeLocalClientForm();
+    });
+
+    applyClientFilter();
+  </script>
+  <script src="{{ url_for('static', filename='flash-toast.js') }}"></script>
+</body>
+</html>
+

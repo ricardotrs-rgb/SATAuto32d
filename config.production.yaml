@@ -1,0 +1,189 @@
+project_name: sat32d_robot
+paths:
+  control: /data/SAT32D/Control
+  publico: /data/SAT32D/Publico
+  terceros: /data/SAT32D/Terceros
+  errores: /data/SAT32D/Errores
+  logs: /data/SAT32D/Logs
+logging:
+  level: INFO
+  file_name: sat32d_robot.log
+robots:
+  sat32d_web_base:
+    enabled: true
+    start_url: https://example.com
+    timeout_seconds: 30
+    browser: chromium
+    headless: true
+    capture:
+      enabled: true
+      file_name: landing.png
+      full_page: true
+    download:
+      enabled: false
+      trigger_selector: ""
+      target_subdir: sat32d_web_base
+    login:
+      enabled: false
+      username: ""
+      password: ""
+      username_selector: ""
+      password_selector: ""
+      submit_selector: ""
+    steps:
+  sat32d_descarga_demo:
+    enabled: true
+    start_url: fixture:download_demo.html
+    timeout_seconds: 30
+    browser: chromium
+    headless: true
+    capture:
+      enabled: true
+      file_name: descarga_demo.png
+      full_page: true
+    download:
+      enabled: true
+      trigger_selector: "#download-file"
+      target_subdir: sat32d_descarga_demo
+    login:
+      enabled: false
+      username: ""
+      password: ""
+      username_selector: ""
+      password_selector: ""
+      submit_selector: ""
+    steps:
+      fill_busqueda:
+        action: fill
+        selector: "#search-box"
+        value: "RFC DEMO SAT32D"
+      click_preparar:
+        action: click
+        selector: "#prepare-download"
+  sat32d_opinion_cumplimiento:
+    enabled: true
+    start_url: https://ptsc32d.clouda.sat.gob.mx/?/reporteOpinion32DContribuyente
+    timeout_seconds: 45
+    browser: chromium
+    headless: true
+    capture:
+      enabled: true
+      file_name: opinion_login.png
+      full_page: true
+    download:
+      enabled: false
+      trigger_selector: ""
+      target_subdir: sat32d_opinion_cumplimiento
+    login:
+      enabled: false
+      username: ""
+      password: ""
+      username_selector: "#rfc"
+      password_selector: "#password"
+      submit_selector: "#submit"
+    steps:
+      esperar_login:
+        action: wait_for
+        selector: "#rfc"
+  sat32d_publico:
+    enabled: true
+    start_url: https://ptsc32d.clouda.sat.gob.mx/ConsultaPublico
+    timeout_seconds: 45
+    browser: chromium
+    headless: true
+    capture:
+      enabled: false
+      file_name: publico.png
+      full_page: true
+    download:
+      enabled: false
+      trigger_selector: ""
+      target_subdir: sat32d_publico
+    login:
+      enabled: false
+      username: ""
+      password: ""
+      username_selector: ""
+      password_selector: ""
+      submit_selector: ""
+    public_query:
+      rfc_input_selector: "#txtRfc"
+      submit_selector: "#buqueda"
+      result_selector: "#dvMsjessuccess"
+      unauthorized_selector: "#dvMsjesError"
+    steps:
+  sat32d_autoriza_tercero:
+    enabled: true
+    start_url: https://ptsc32d.clouda.sat.gob.mx/#/nuevoTercero
+    timeout_seconds: 90
+    browser: chromium
+    headless: false
+    capture:
+      enabled: true
+      file_name: autoriza_tercero.png
+      full_page: true
+    download:
+      enabled: false
+      trigger_selector: ""
+      target_subdir: sat32d_autoriza_tercero
+    login:
+      enabled: false
+      username: ""
+      password: ""
+      username_selector: ""
+      password_selector: ""
+      submit_selector: ""
+    public_query:
+      rfc_input_selector: ""
+      submit_selector: ""
+      result_selector: ""
+      unauthorized_selector: ""
+    third_party_query:
+      ready_selector: ""
+      rfc_mode_selector: ""
+      rfc_input_selector: ""
+      submit_selector: ""
+      download_selector: ""
+      unauthorized_selector: ""
+    third_party_authorization:
+      ready_selector: "#rfcTercero"
+      rfc_input_selector: "#rfcTercero"
+      authorize_selector: "#alta"
+      revoke_selector: "#baja"
+      print_selector: "#imprimir"
+      success_selector: "text=Tercero autorizado agregado correctamente."
+    steps:
+  sat32d_tercero:
+    enabled: true
+    start_url: https://ptsc32d.clouda.sat.gob.mx/#/reporteOpinion32DTerceroAutorizado
+    timeout_seconds: 90
+    browser: chromium
+    headless: false
+    capture:
+      enabled: false
+      file_name: tercero.png
+      full_page: true
+    download:
+      enabled: false
+      trigger_selector: ""
+      target_subdir: sat32d_tercero
+    login:
+      enabled: false
+      username: ""
+      password: ""
+      username_selector: ""
+      password_selector: ""
+      submit_selector: ""
+    public_query:
+      rfc_input_selector: ""
+      submit_selector: ""
+      result_selector: ""
+      unauthorized_selector: ""
+    third_party_query:
+      ready_selector: "#inputRFCCURP"
+      rfc_mode_selector: "#flexRadioRFC"
+      rfc_input_selector: "#inputRFCCURP"
+      submit_selector: "#btnConsultar"
+      download_selector: "text=Exportar a PDF"
+      unauthorized_selector: "text=No está autorizado para ejecutar esta acción."
+    steps:

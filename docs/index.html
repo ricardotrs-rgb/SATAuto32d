@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="SAT32D Control - pagina estatica para GitHub Pages con resumen del proyecto y guia de despliegue.">
+  <title>SAT32D Control | GitHub Pages</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero card">
+      <div class="hero-copy">
+        <p class="eyebrow">GitHub Pages export</p>
+        <h1>SAT32D Control</h1>
+        <p class="lead">
+          Version estatica de presentacion para publicar el proyecto en GitHub Pages.
+          La aplicacion completa sigue corriendo en Flask, Docker o VPS; esta pagina es la portada publica del repositorio.
+        </p>
+        <div class="actions">
+          <a class="button primary" href="#deploy">Ver despliegue</a>
+          <a class="button secondary" href="#what-is">Que incluye</a>
+        </div>
+      </div>
+      <aside class="hero-panel">
+        <div class="status-pill">Static site ready</div>
+        <ul class="metric-list">
+          <li><span>Frontend</span><strong>HTML + CSS</strong></li>
+          <li><span>Hosting</span><strong>GitHub Pages</strong></li>
+          <li><span>Backend</span><strong>Flask / VPS</strong></li>
+        </ul>
+      </aside>
+    </header>
+
+    <main class="content-grid">
+      <section class="card" id="what-is">
+        <p class="eyebrow">Resumen</p>
+        <h2>Que es esta version</h2>
+        <p>
+          SAT32D es una plataforma de automatizacion y control para consultas SAT32D, captura de clientes,
+          gestion local de archivos y ejecuciones con Playwright.
+        </p>
+        <p>
+          GitHub Pages no ejecuta Python ni Flask, por eso esta exportacion solo muestra una portada estatica,
+          la informacion principal del proyecto y los pasos para levantar la aplicacion real.
+        </p>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">Incluye</p>
+        <h2>Contenido publicado</h2>
+        <ul class="feature-grid">
+          <li>Presentacion del proyecto</li>
+          <li>Guia corta de despliegue</li>
+          <li>Resumen de capacidades</li>
+          <li>Enlace a la ejecucion local</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">Limite</p>
+        <h2>Lo que no hace GitHub Pages</h2>
+        <ul class="feature-grid">
+          <li>No ejecuta Flask</li>
+          <li>No corre Playwright</li>
+          <li>No accede al almacenamiento local</li>
+          <li>No expone endpoints dinamicos</li>
+        </ul>
+      </section>
+
+      <section class="card wide" id="deploy">
+        <p class="eyebrow">Despliegue</p>
+        <h2>Como publicar esta pagina</h2>
+        <ol class="steps">
+          <li>Sube el repositorio a GitHub.</li>
+          <li>Activa GitHub Pages usando la rama principal y la carpeta <strong>/docs</strong> o el workflow incluido.</li>
+          <li>Espera la publicacion y valida la URL que te entrega GitHub.</li>
+        </ol>
+        <p class="note">
+          La app web real sigue disponible por Flask/Docker en tu VPS. Esta pagina solo sirve como exportacion estatica y portada del proyecto.
+        </p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

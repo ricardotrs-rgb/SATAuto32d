@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SAT32D Acceso</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body class="page-auth">
+  <main class="auth-shell">
+    <section class="auth-panel auth-copy">
+      <p class="eyebrow">SAT32D Control</p>
+      <h1>Acceso local al tablero de clientes</h1>
+      <p class="lead">Captura tu RFC y tu contraseña para abrir la seccion donde se muestran los clientes registrados en el almacenamiento local.</p>
+      <ul class="feature-list">
+        <li>No se guarda tu contrasena en el servidor.</li>
+        <li>La sesion solo se usa para desbloquear la vista local.</li>
+        <li>Los clientes se leen en tiempo real desde la base local de la pagina.</li>
+      </ul>
+    </section>
+    <section class="auth-panel auth-form-panel">
+      <form class="auth-form" action="{{ url_for('login') }}" method="post">
+        <h2>Iniciar sesion</h2>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-stack">
+              {% for category, message in messages %}
+                <div class="flash flash-{{ category }}" role="status" aria-live="polite">
+                  <p class="flash-content">{{ message }}</p>
+                  <button class="flash-close" type="button" aria-label="Cerrar notificacion">x</button>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+        <label class="field">
+          <span>RFC</span>
+          <input type="text" name="rfc" placeholder="Tu RFC con homoclave" autocomplete="username" required>
+        </label>
+        <label class="field">
+          <span>Contrasena</span>
+          <input type="password" name="password" placeholder="Tu contrasena del SAT" autocomplete="current-password" required>
+        </label>
+        <div class="auth-actions">
+          <button class="primary-button" type="submit">Entrar</button>
+          <a class="success-button button-link" href="{{ url_for('register_form') }}">Registrar</a>
+        </div>
+      </form>
+    </section>
+  </main>
+  <script src="{{ url_for('static', filename='flash-toast.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Descarga Demo SAT32D</title>
+    <style>
+        body {
+            font-family: Segoe UI, sans-serif;
+            margin: 40px;
+            background: #f7f3ea;
+            color: #1f2937;
+        }
+
+        .panel {
+            max-width: 720px;
+            padding: 24px;
+            border-radius: 16px;
+            background: #fffaf0;
+            box-shadow: 0 12px 24px rgba(31, 41, 55, 0.12);
+        }
+
+        label,
+        input,
+        button,
+        a {
+            display: block;
+            margin-top: 12px;
+        }
+
+        input,
+        button,
+        a {
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid #d1d5db;
+            text-decoration: none;
+        }
+
+        button,
+        a {
+            width: fit-content;
+            background: #0f766e;
+            color: white;
+            cursor: pointer;
+        }
+
+        #status {
+            margin-top: 16px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="panel">
+        <h1>Descarga Demo SAT32D</h1>
+        <p>Fixture local para validar el robot de descarga.</p>
+        <label for="search-box">Busqueda</label>
+        <input id="search-box" type="text" placeholder="Escribe un RFC">
+        <button id="prepare-download" type="button">Preparar descarga</button>
+        <a
+            id="download-file"
+            href="data:text/plain;charset=utf-8,archivo%20demo%20sat32d%0Aestado%3A%20ok"
+            download="sat32d_demo.txt"
+        >Descargar archivo</a>
+        <div id="status">Pendiente</div>
+    </div>
+
+    <script>
+        const searchBox = document.getElementById('search-box');
+        const status = document.getElementById('status');
+        const prepareButton = document.getElementById('prepare-download');
+
+        prepareButton.addEventListener('click', () => {
+            const text = searchBox.value.trim() || 'sin criterio';
+            status.textContent = `Descarga preparada para: ${text}`;
+        });
+    </script>
+</body>
+</html>
